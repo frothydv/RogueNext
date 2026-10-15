@@ -1,6 +1,7 @@
 // Painted tabletop miniatures: the hero and all 26 monsters, built from primitives and animated
 // procedurally (idle breathing, hopping walk, lunge attacks, hit flash, death).
 import * as THREE from 'three';
+import { hasModel, instantiate } from './models.js';
 
 const TAU = Math.PI * 2;
 const rad = (d) => (d * Math.PI) / 180;
@@ -746,7 +747,16 @@ export class Mini {
     this.letter = letter;
     this.kit = new Kit();
     this.root = new THREE.Group();
-    this.body = art === 'hero' ? buildHero(this.kit) : (MONSTER_ART[letter] || MONSTER_ART.H)(this.kit);
+    const modelName = art === 'hero' ? 'hero' : letter;
+    const inst = hasModel(modelName) ? instantiate(modelName) : null;
+    if (inst) {
+      this.kit = inst.kit;
+      const bk = new Kit();
+      this.kit.mat = (h, o) => { const m = bk.mat(h, o); if (!this.kit.matList.includes(m)) this.kit.matList.push(m); return m; };
+      this.body = inst.root;
+      Object.assign(this.body.userData, inst.extras, { rig: inst.rig, model: true });
+      if (art === 'hero') this.body.userData.hero = true;
+    } else this.body = art === 'hero' ? buildHero(this.kit) : (MONSTER_ART[letter] || MONSTER_ART.H)(this.kit);
     this.rig = this.body.userData.rig || {};
     this.isHero = art === 'hero';
     this.root.add(this.body);
@@ -786,7 +796,7 @@ export class Mini {
     if (letter && art !== 'hero') this.setGlyph(letter);
     this.zzz = null;
     this.tag = null;
-    this.setScale(1.4);
+    this.setScale(inst ? (this.body.userData.scale || 1.3) : 1.4);
   }
 
   setGlyph(ch) {
@@ -904,7 +914,8 @@ export class Mini {
     if (rig.cape) rig.cape.rotation.x = (moving ? 0.25 : 0.05) + Math.sin(now * 2.4 + this.seed) * 0.03;
     if (rig.flame) {
       const fl = 1 + Math.sin(now * 23) * 0.12 + Math.sin(now * 37) * 0.08;
-      rig.flame.scale.set(fl, fl * (1.15 + Math.sin(now * 17) * 0.1), fl);
+      const bs = rig.flame.userData.bs || (rig.flame.userData.bs = rig.flame.scale.clone());
+      rig.flame.scale.set(fl * bs.x, fl * (1.15 + Math.sin(now * 17) * 0.1) * bs.y, fl * bs.z);
     }
     if (rig.rattle) rig.rattle.rotation.z = Math.sin(now * 40) * 0.1 * (this.sleeping ? 0 : 1);
     // idle breathing / body bob

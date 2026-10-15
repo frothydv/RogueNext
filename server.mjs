@@ -9,7 +9,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 5173);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.map': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
-await build({ entryPoints: [path.join(root, 'src/main.js')], bundle: true, format: 'iife', outfile: path.join(root, 'dist/game.js'), sourcemap: true, target: 'es2022', logLevel: 'warning' });
+await build({ entryPoints: [path.join(root, 'src/main.js')], bundle: true, format: 'iife', outfile: path.join(root, 'dist/game.js'), sourcemap: true, target: 'es2022', loader: { '.glb': 'binary' }, logLevel: 'warning' });
 
 http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);

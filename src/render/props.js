@@ -4,6 +4,7 @@ import * as D from '../rogue/data.js';
 import { FLOOR_Y, WALL_H } from './board.js';
 import { colorFor, drawIcon } from './icons.js';
 import * as T from './textures.js';
+import { instantiate, hasModel } from './models.js';
 
 const mats = new Map();
 function M(hex, o = {}) {
@@ -222,7 +223,22 @@ function armorMesh(which, y0, tilt) {
 }
 
 // ------------------------------------------------------------------ doors, stairs, traps, torches
+function placed(name, x, y, z) {
+  const inst = instantiate(name);
+  inst.root.position.set(x, y, z);
+  return inst;
+}
+
 export function buildDoor(horiz, openTo = 1) {
+  if (hasModel('kit_door')) {
+    const g = new THREE.Group();
+    const inst = placed('kit_door', 0.5, FLOOR_Y, 0.5);
+    g.add(inst.root);
+    g.userData.hinge = inst.rig.hinge;
+    inst.rig.hinge.rotation.y = -1.25 * openTo;
+    if (!horiz) { g.rotation.y = -Math.PI / 2; g.position.set(0, 0, 1); }
+    return g;
+  }
   const g = new THREE.Group();
   const wood = M(0x6a4326, { rough: 0.7 });
   const iron = M(0x2a2a30, { metal: 0.8, rough: 0.45 });
@@ -287,14 +303,18 @@ function runeTexture() {
 
 export function buildStairs() {
   const g = new THREE.Group();
+  const modelled = hasModel('kit_stairs');
+  if (modelled) g.add(placed('kit_stairs', 0.5, FLOOR_Y, 0.5).root);
   const stone = M(0x6a655a, { rough: 0.85 });
-  const pit = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), new THREE.MeshStandardMaterial({ map: stairsTexture(), roughness: 1 }));
-  pit.rotation.x = -Math.PI / 2; pit.position.set(0.5, FLOOR_Y + 0.012, 0.5); pit.receiveShadow = true;
-  g.add(pit);
-  for (const [w, d, x, z] of [[1, 0.1, 0.5, 0.05], [1, 0.1, 0.5, 0.95], [0.1, 0.8, 0.05, 0.5], [0.1, 0.8, 0.95, 0.5]])
-    g.add(box(w, 0.1, d, stone, x, FLOOR_Y + 0.05, z));
+  if (!modelled) {
+    const pit = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), new THREE.MeshStandardMaterial({ map: stairsTexture(), roughness: 1 }));
+    pit.rotation.x = -Math.PI / 2; pit.position.set(0.5, FLOOR_Y + 0.012, 0.5); pit.receiveShadow = true;
+    g.add(pit);
+    for (const [w, d, x, z] of [[1, 0.1, 0.5, 0.05], [1, 0.1, 0.5, 0.95], [0.1, 0.8, 0.05, 0.5], [0.1, 0.8, 0.95, 0.5]])
+      g.add(box(w, 0.1, d, stone, x, FLOOR_Y + 0.05, z));
+  }
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: runeTexture(), transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(2.2, 1.5, 0.7) }));
-  rune.rotation.x = -Math.PI / 2; rune.position.set(0.5, FLOOR_Y + 0.02, 0.5);
+  rune.rotation.x = -Math.PI / 2; rune.position.set(0.5, FLOOR_Y + (modelled ? 0.07 : 0.02), 0.5);
   g.add(rune);
   g.userData.rune = rune;
   return g;
@@ -326,6 +346,13 @@ function trapTexture(type) {
 }
 export function buildTrap(type) {
   const g = new THREE.Group();
+  if (hasModel(`kit_trap${type}`)) {
+    const inst = placed(`kit_trap${type}`, 0, FLOOR_Y, 0);
+    g.add(inst.root);
+    g.userData.glow = inst.matList.filter((m) => m.emissive && m.emissive.getHex() > 0 && m.userData.baseEmissiveI > 0.01);
+    g.userData.type = type;
+    return g;
+  }
   const em = [0, 0, 0.5, 0, 1.2, 0, 0.3, 1.0][type];
   const mat = new THREE.MeshStandardMaterial({ map: trapTexture(type), roughness: 0.6, metalness: 0.3, emissive: new THREE.Color(0xffffff), emissiveMap: trapTexture(type), emissiveIntensity: em * 0.6, transparent: true });
   const plate = new THREE.Mesh(new THREE.CircleGeometry(0.36, 32), mat);
@@ -345,14 +372,18 @@ export function buildTrap(type) {
 
 export function buildSconce() {
   const g = new THREE.Group();
+  const modelled = hasModel('kit_sconce');
+  if (modelled) g.add(instantiate('kit_sconce').root);
   const iron = M(0x2a2622, { metal: 0.8, rough: 0.5 });
   const wood = M(0x4a3018, { rough: 0.8 });
-  g.add(box(0.1, 0.22, 0.04, iron, 0, 0, 0));
-  const arm = cyl(0.014, 0.014, 0.14, iron, 0, 0.05, 0.08, 6); arm.rotation.x = Math.PI / 2; g.add(arm);
-  const cup = cyl(0.045, 0.03, 0.06, iron, 0, 0.1, 0.14, 8); g.add(cup);
-  g.add(cyl(0.022, 0.026, 0.2, wood, 0, 0.22, 0.14, 8));
+  if (!modelled) {
+    g.add(box(0.1, 0.22, 0.04, iron, 0, 0, 0));
+    const arm = cyl(0.014, 0.014, 0.14, iron, 0, 0.05, 0.08, 6); arm.rotation.x = Math.PI / 2; g.add(arm);
+    const cup = cyl(0.045, 0.03, 0.06, iron, 0, 0.1, 0.14, 8); g.add(cup);
+    g.add(cyl(0.022, 0.026, 0.2, wood, 0, 0.22, 0.14, 8));
+  }
   const flame = new THREE.Group();
-  flame.position.set(0, 0.36, 0.14);
+  flame.position.set(0, modelled ? 0.44 : 0.36, 0.14);
   const f1 = cone(0.055, 0.2, new THREE.MeshBasicMaterial({ color: new THREE.Color(3.0, 1.1, 0.25), transparent: true, opacity: 0.95 }), 0, 0, 0, 8);
   const f2 = cone(0.032, 0.13, new THREE.MeshBasicMaterial({ color: new THREE.Color(3.5, 2.6, 1.0), transparent: true, opacity: 1 }), 0, -0.02, 0, 8);
   f1.castShadow = f2.castShadow = false;

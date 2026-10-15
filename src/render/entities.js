@@ -328,7 +328,7 @@ export class Entities {
       if (this.torches.some((t) => t.site.k === s.k)) continue;
       const mesh = P.buildSconce();
       // wall face centre; (dx,dy) points into the room
-      mesh.position.set(s.x + 0.5 + s.dx * 0.5, FLOOR_Y + WALL_H * 0.6, s.y + 0.5 + s.dy * 0.5);
+      mesh.position.set(s.x + 0.5 + s.dx * 0.53, FLOOR_Y + WALL_H * 0.6, s.y + 0.5 + s.dy * 0.53);
       mesh.rotation.y = Math.atan2(s.dx, s.dy);
       this.group.add(mesh);
       this.torches.push({ mesh, site: s, seed: Math.random() * 10, light: null });
@@ -442,8 +442,9 @@ export class Entities {
     // trap pulse
     for (const tr of this.traps.values()) {
       const type = tr.mesh.userData.type;
-      const p = tr.mesh.userData.plate.material;
-      if (type === D.T_TELEP || type === D.T_SLEEP || type === D.T_MYST) p.emissiveIntensity = 0.5 + 0.35 * Math.sin(t * 3);
+      const glow = tr.mesh.userData.glow;
+      if (glow) { for (const m of glow) m.emissiveIntensity = m.userData.baseEmissiveI * (0.7 + 0.3 * Math.sin(t * 3 + tr.born)); }
+      else if (type === D.T_TELEP || type === D.T_SLEEP || type === D.T_MYST) tr.mesh.userData.plate.material.emissiveIntensity = 0.5 + 0.35 * Math.sin(t * 3);
       const a = Math.min(1, (t - tr.born) / 0.4);
       tr.mesh.scale.setScalar(0.4 + 0.6 * a);
     }

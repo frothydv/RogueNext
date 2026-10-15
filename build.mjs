@@ -8,6 +8,7 @@ const opts = {
   outfile: 'dist/game.js',
   sourcemap: true,
   target: 'es2022',
+  loader: { '.glb': 'binary' },
   logLevel: 'info',
   minify: !process.argv.includes('--dev'),
 };

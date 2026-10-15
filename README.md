@@ -40,15 +40,36 @@ the valid cards and show a compass.
 Hovering shows what things are. Monsters sit on bases with the classic letter on the rim and a
 ring colour that shows how dangerous they are (green → red).
 
+## Blender asset pipeline
+
+All miniatures (hero + 26 monsters) and the modular dungeon kit are modelled in Blender with
+Python scripts, so they can be regenerated and tweaked:
+
+```
+blender -b -P blender/mini_humanoids.py     # hero, humanoid monsters
+blender -b -P blender/mini_creatures.py     # animals, dragon, snake, etc.
+blender -b -P blender/mini_specials.py      # flytrap, ghost-like and odd monsters
+blender -b -P blender/dungeon_kit.py        # cobbled floors, cut-stone walls, flagstone caps
+blender -b -P blender/dungeon_props.py      # door, stairs, 8 trap plates, sconce, dressing
+node scripts/optimize.mjs                   # meshopt-compress -> src/render/assets.generated.js
+node build.mjs                              # bundle (models are inlined, index.html still opens by double-click)
+```
+
+Models carry baked ambient occlusion, edge wear and zone colours in vertex colours, and named
+nodes (`legL`, `armR`, `wingL`, `jawA`, `hinge`, …) that the game animates. The dungeon kit is
+drawn with `InstancedMesh` (`src/render/kitboard.js`) with fog-of-war shading, a rising reveal
+animation and the wall cut-away done in the vertex shader.
+
 ## How it is built
 
 * `src/rogue/` — a faithful JavaScript port of the original C source (`rooms.c`, `passages.c`,
   `chase.c`, `fight.c`, `potions.c`, … including the original LCG random numbers and the
   monster tables). The only deviations are interface-driven (no `--More--`, no shell escape,
   identify can't soft-lock, wizard-mode omitted).
-* `src/render/` — procedural textures (wood, flagstone, brick), the table/board/props,
-  miniatures for the hero and all 26 monsters, item props, FX, a director that turns game
-  events into sequenced animation, and a tiny WebAudio synthesizer.
+* `src/render/` — the table/board/props, FX, a director that turns game events into sequenced
+  animation, and a tiny WebAudio synthesizer. Miniatures, dungeon floor/wall pieces, doors,
+  stairs, traps, sconces and floor dressing are Blender models (see below); the old procedural
+  versions stay as a fallback and are used by the *Low* quality preset's board.
 * `src/ui/` — HUD, cards, prompts, input handling, travel path-finding, tombstone & scores.
 * Saves and high scores live in the browser's `localStorage`.
 
