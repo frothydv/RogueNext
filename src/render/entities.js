@@ -313,8 +313,8 @@ export class Entities {
       live.add(d.k);
       if (!this.doors.has(d.k)) {
         const mesh = P.buildDoor(d.horiz);
-        mesh.position.set(d.x + (d.horiz ? 0 : 0), 0, d.y);
-        if (!d.horiz) mesh.position.set(d.x, 0, d.y + 1);
+        // a door in a vertical wall is turned a quarter about its cell centre, which shifts its local origin to (x + 1, y)
+        mesh.position.set(d.x + (d.horiz ? 0 : 1), 0, d.y);
         mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
         this.group.add(mesh);
         this.doors.set(d.k, { mesh, open: 1, cell: d });

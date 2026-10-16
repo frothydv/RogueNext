@@ -230,6 +230,36 @@ function placed(name, x, y, z) {
 }
 
 export function buildDoor(horiz, openTo = 1) {
+  if (hasModel('tile_door')) {
+    // One arch standing in the middle of the cell (you walk through it); its leaf, cut from the arch, hangs on the west
+    // jamb and swings.
+    const g = new THREE.Group();
+    const inst = instantiate('tile_door');
+    const root = inst.root;
+    const frame = root.getObjectByName('frame'), leaf = root.getObjectByName('leaf');
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(frame);
+    const sc = 1 / (box.max.x - box.min.x);
+    const depth = 1 / sc; // one cell, in model units
+    const mid = new THREE.Box3().setFromObject(frame).getCenter(new THREE.Vector3()).z;
+    frame.position.z += depth / 2 - mid;
+    root.updateMatrixWorld(true);
+    leaf.position.z += depth / 2 - new THREE.Box3().setFromObject(leaf).getCenter(new THREE.Vector3()).z;
+    root.updateMatrixWorld(true);
+    const lb = new THREE.Box3().setFromObject(leaf);
+    const hinge = new THREE.Group();
+    hinge.position.set(lb.min.x, 0, (lb.min.z + lb.max.z) / 2);
+    root.add(hinge);
+    hinge.updateMatrixWorld(true);
+    hinge.attach(leaf);
+    root.scale.setScalar(sc);
+    root.position.set(0.5 - (box.min.x + box.max.x) / 2 * sc, FLOOR_Y - 0.01 - box.min.y * sc, 0);
+    g.add(root);
+    g.userData.hinge = hinge;
+    hinge.rotation.y = -1.25 * openTo;
+    if (!horiz) { g.rotation.y = -Math.PI / 2; g.position.set(0, 0, 1); }
+    return g;
+  }
   if (hasModel('kit_door')) {
     const g = new THREE.Group();
     const inst = placed('kit_door', 0.5, FLOOR_Y, 0.5);

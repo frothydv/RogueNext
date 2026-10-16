@@ -84,7 +84,7 @@ export function kitMeshes(name, { lift = 0 } = {}) {
     if (o.isMesh) {
       const g = o.geometry.clone();
       // quantized (normalized int16) attributes would clip/wrap when transformed: widen to float first
-      for (const key of ['position', 'normal', 'color']) {
+      for (const key of ['position', 'normal', 'color', 'uv']) {
         const a = g.attributes[key];
         if (!a || a.array instanceof Float32Array) continue;
         const f = new Float32Array(a.count * a.itemSize);
@@ -94,7 +94,7 @@ export function kitMeshes(name, { lift = 0 } = {}) {
       g.applyMatrix4(o.matrixWorld);
       if (lift) g.translate(0, lift, 0);
       g.computeBoundingSphere();
-      out.push({ geometry: g, material: o.material });
+      out.push({ geometry: g, material: o.material, name: o.name });
     }
   });
   return out;

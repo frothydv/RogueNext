@@ -61,6 +61,9 @@ import m58 from '../../assets/models/kit_wall1.glb';
 import m59 from '../../assets/models/kit_wall2.glb';
 import m60 from '../../assets/models/kit_wall3.glb';
 import m61 from '../../assets/models/kit_wall4.glb';
+import m62 from '../../assets/models/tile_door.glb';
+import m63 from '../../assets/models/tile_floor.glb';
+import m64 from '../../assets/models/tile_wall.glb';
 export const MODEL_DATA = {
   'A': m0,
   'B': m1,
@@ -124,4 +127,7 @@ export const MODEL_DATA = {
   'kit_wall2': m59,
   'kit_wall3': m60,
   'kit_wall4': m61,
+  'tile_door': m62,
+  'tile_floor': m63,
+  'tile_wall': m64,
 };

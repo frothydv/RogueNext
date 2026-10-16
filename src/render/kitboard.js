@@ -8,6 +8,7 @@ import { kitMeshes, hasModel } from './models.js';
 
 const W = 80, H = 24, CH = 10;
 const WALL_H = 1.02;
+const FLOOR_TOP = 0.045; // textured floor tile: top surface sits just above the board's FLOOR_Y - 0.035 instance origin
 
 const RISE = `
   float tt = clamp((uTime - aStart) / 0.55, 0.0, 1.0);
@@ -71,17 +72,79 @@ export class KitBoard extends BoardView {
         return [mk(mergeGeometries(geos, false), prims[0].material)];
       });
     };
+    this.tiled = ['tile_floor', 'tile_wall'].every(hasModel);
+    if (this.tiled) this.loadTiles();
+    else {
     load('floor', ['kit_floor0', 'kit_floor1', 'kit_floor2', 'kit_floor3', 'kit_floor4', 'kit_floor5'], 0, false, false);
     load('corr', ['kit_corr0', 'kit_corr1', 'kit_corr2', 'kit_corr3'], 0, false, false);
     load('wall', ['kit_wall0', 'kit_wall1', 'kit_wall2', 'kit_wall3', 'kit_wall4'], 0, true, true);
     load('cap', ['kit_cap0', 'kit_cap1', 'kit_cap2'], WALL_H, true, true);
+    }
     this.decorNames = ['bones', 'rubble', 'mushrooms', 'pottery', 'crate', 'cobweb'];
     load('decor', this.decorNames.map((n) => `kit_d_${n}`), 0, false, false, false);
-    this.ownFloor = hasModel('kit_door') && hasModel('kit_stairs') && hasModel('kit_trap0');
+    // a textured door tile has no floor of its own, so door cells keep their floor tile
+    this.ownFloor = !hasModel('tile_door') && hasModel('kit_door') && hasModel('kit_stairs') && hasModel('kit_trap0');
     this.depthWall = depthInst('depth', true);
     this.distWall = depthInst('distance', true);
     this.meshes = [];
-    this.ready = this.pieces.floor.length > 0 && this.pieces.wall.length > 0 && this.pieces.cap.length > 0;
+    this.ready = this.pieces.floor.length > 0 && this.pieces.wall.length > 0 && (this.tiled || this.pieces.cap.length > 0);
+  }
+
+  // The textured tile set (wall / floor): one image-mapped piece each, scaled to the 1x1 board cell.
+  loadTiles() {
+    const piece = (name) => {
+      const [p] = kitMeshes(name);
+      const g = p.geometry;
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      g.computeBoundingBox();
+      const m = p.material.clone();
+      patchInst(m, false);
+      return { g, m, bb: g.boundingBox.clone() };
+    };
+    const place = (src, s, sy, rotY, dx, dy, dz) => {
+      const g = src.clone();
+      g.translate(-(src.boundingBox.min.x + src.boundingBox.max.x) / 2, -src.boundingBox.min.y, -(src.boundingBox.min.z + src.boundingBox.max.z) / 2);
+      g.rotateY(rotY);
+      g.scale(s, sy, s);
+      g.translate(dx, dy, dz);
+      return g;
+    };
+    const fl = piece('tile_floor');
+    const fs = 1 / (fl.bb.max.x - fl.bb.min.x);
+    const fh = (fl.bb.max.y - fl.bb.min.y) * fs;
+    const floorGeo = place(fl.g, fs, fs, 0, 0, FLOOR_TOP - fh, 0);
+    fl.m.roughness = 1;
+    this.pieces.floor = [[{ geometry: floorGeo, material: fl.m, castShadow: false }]];
+    this.pieces.corr = [];
+    this.pieces.cap = [];
+
+    // The wall model is scaled uniformly so its height matches the door arch. That makes it ~2.5 cells wide, so it was cut
+    // into three one-cell-wide upright segments (different stretches of brickwork); the plain side faces the room.
+    let target = 0;
+    if (hasModel('tile_door')) {
+      const box = new THREE.Box3();
+      for (const { geometry } of kitMeshes('tile_door')) { geometry.computeBoundingBox(); box.union(geometry.boundingBox); }
+      target = (box.max.y - box.min.y) / (box.max.x - box.min.x);
+    }
+    const segs = kitMeshes('tile_wall').sort((a, b) => a.name.localeCompare(b.name));
+    this.pieces.wall = segs.map((p) => {
+      const g = p.geometry;
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      const k = (target || (bb.max.y - bb.min.y)) / (bb.max.y - bb.min.y);
+      const sx = 1 / (bb.max.x - bb.min.x);
+      g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+      g.rotateY(Math.PI);
+      // a touch deeper so the slabs on the two faces of a one-cell wall meet in the middle (no hollow core)
+      const kz = k * 1.25;
+      g.scale(sx, k, kz);
+      g.translate(0, 0, -(bb.max.z - bb.min.z) * kz / 2);
+      const m = p.material.clone();
+      m.roughness = 1;
+      m.color.setScalar(1.6); // the wall texture is darker than the door arch's stone; lift it to match
+      return [{ geometry: g, material: patchInst(m, true), castShadow: true }];
+    });
   }
 
   clearKit() {
@@ -166,7 +229,7 @@ export class KitBoard extends BoardView {
         const h = hash(x, y, S.dnum + 7);
         const start = this.revealAt[k];
         const cx = (x / CH) | 0, cy = (y / CH) | 0;
-        cp.push({ variant: h % nP, cx, cy, pos: new THREE.Vector3(x + 0.5, FLOOR_Y, y + 0.5), quat: yq(((h >>> 4) & 3) * Math.PI / 2), start, cell: k });
+        if (nP) cp.push({ variant: h % nP, cx, cy, pos: new THREE.Vector3(x + 0.5, FLOOR_Y, y + 0.5), quat: yq(((h >>> 4) & 3) * Math.PI / 2), start, cell: k });
         dirs.forEach(([dx, dy, ang], di) => {
           if (this.isWallCell(x + dx, y + dy)) return;
           wl.push({ variant: ((h >>> (3 + di * 3)) + di * 5) % nW, cx, cy, pos: new THREE.Vector3(x + 0.5 + dx * 0.5, FLOOR_Y, y + 0.5 + dy * 0.5), quat: yq(ang), start, cell: k });
