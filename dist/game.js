@@ -39672,7 +39672,10 @@ void main() {
         for (let x = 0; x < W; x++) {
           const k = y * W + x;
           if (this.seen[k] && this.terr[k] === TERR.DOOR) {
-            const horiz2 = this.isWallCell(x - 1, y) || this.isWallCell(x + 1, y);
+            const open = (cx, cy) => cx >= 0 && cy >= 0 && cx < W && cy < H && this.terr[cy * W + cx] >= TERR.FLOOR && this.terr[cy * W + cx] <= TERR.TRAP ? 1 : 0;
+            const wall = (cx, cy) => cx >= 0 && cy >= 0 && cx < W && cy < H && this.terr[cy * W + cx] === TERR.WALL ? 1 : 0;
+            const score = open(x, y - 1) + open(x, y + 1) - open(x - 1, y) - open(x + 1, y) + wall(x - 1, y) + wall(x + 1, y) - wall(x, y - 1) - wall(x, y + 1);
+            const horiz2 = score !== 0 ? score > 0 : this.isWallCell(x - 1, y) || this.isWallCell(x + 1, y);
             this.doorCells.push({ x, y, k, horiz: horiz2 });
           }
           if (this.seen[k] && this.terr[k] === TERR.WALL) {
@@ -46271,6 +46274,11 @@ void main() {
       const live = /* @__PURE__ */ new Set();
       for (const d of b.doorCells) {
         live.add(d.k);
+        const have = this.doors.get(d.k);
+        if (have && have.cell.horiz !== d.horiz) {
+          this.group.remove(have.mesh);
+          this.doors.delete(d.k);
+        }
         if (!this.doors.has(d.k)) {
           const mesh3 = buildDoor(d.horiz);
           mesh3.position.set(d.x + (d.horiz ? 0 : 1), 0, d.y);

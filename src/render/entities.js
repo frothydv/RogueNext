@@ -311,6 +311,8 @@ export class Entities {
     const live = new Set();
     for (const d of b.doorCells) {
       live.add(d.k);
+      const have = this.doors.get(d.k);
+      if (have && have.cell.horiz !== d.horiz) { this.group.remove(have.mesh); this.doors.delete(d.k); } // orientation firmed up as more of the map was seen
       if (!this.doors.has(d.k)) {
         const mesh = P.buildDoor(d.horiz);
         // a door in a vertical wall is turned a quarter about its cell centre, which shifts its local origin to (x + 1, y)

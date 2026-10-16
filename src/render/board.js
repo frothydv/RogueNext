@@ -295,7 +295,12 @@ export class BoardView {
       for (let x = 0; x < W; x++) {
         const k = y * W + x;
         if (this.seen[k] && this.terr[k] === TERR.DOOR) {
-          const horiz = this.isWallCell(x - 1, y) || this.isWallCell(x + 1, y); // door set in a horizontal wall
+          // a door sits in a horizontal wall when you walk through it north-south: judge by the open floor and walls
+          // around it on the real map (not just the walls already seen), so the arch never turns the wrong way
+          const open = (cx, cy) => (cx >= 0 && cy >= 0 && cx < W && cy < H && this.terr[cy * W + cx] >= TERR.FLOOR && this.terr[cy * W + cx] <= TERR.TRAP) ? 1 : 0;
+          const wall = (cx, cy) => (cx >= 0 && cy >= 0 && cx < W && cy < H && this.terr[cy * W + cx] === TERR.WALL) ? 1 : 0;
+          const score = open(x, y - 1) + open(x, y + 1) - open(x - 1, y) - open(x + 1, y) + wall(x - 1, y) + wall(x + 1, y) - wall(x, y - 1) - wall(x, y + 1);
+          const horiz = score !== 0 ? score > 0 : this.isWallCell(x - 1, y) || this.isWallCell(x + 1, y);
           this.doorCells.push({ x, y, k, horiz });
         }
         if (this.seen[k] && this.terr[k] === TERR.WALL) {
