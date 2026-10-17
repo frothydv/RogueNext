@@ -1,7 +1,8 @@
 {
-  "name": "rogue-tabletop",
+  "name": "amulet-of-yendor",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
+  "description": "The Amulet of Yendor: the rules of Rogue 5.4 as a 3D tabletop game",
   "main": "index.js",
   "scripts": {
     "build": "node build.mjs",
@@ -11,7 +12,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "dependencies": {
     "esbuild": "^0.28.2",
     "three": "^0.170.0"

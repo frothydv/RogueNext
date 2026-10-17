@@ -448,7 +448,7 @@ export async function command() {
           case 'D': S.after = false; await io.showDiscoveries(discoveries()); break;
           case CTRL('P'): S.after = false; msg(S.huh); break;
           case CTRL('R'): S.after = false; emit('redraw', {}); break;
-          case 'v': S.after = false; msg('version 5.4.4. (mctesq was here) — presented as Rogue: The Tabletop'); break;
+          case 'v': S.after = false; msg('The Amulet of Yendor 1.0.0 — rules of Rogue version 5.4.4. (mctesq was here)'); break;
           case 'S': S.after = false; await io.saveGame(); break;
           case '.': break;
           case ' ': S.after = false; break;

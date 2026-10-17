@@ -18,4 +18,4 @@ http.createServer((req, res) => {
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end('not found'); return; }
   res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
   fs.createReadStream(file).pipe(res);
-}).listen(port, () => console.log(`Rogue: The Tabletop on http://localhost:${port}`));
+}).listen(port, () => console.log(`The Amulet of Yendor on http://localhost:${port}`));

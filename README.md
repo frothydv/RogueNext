@@ -1,4 +1,6 @@
-# ROGUE: The Tabletop
+# The Amulet of Yendor
+
+*Based on Rogue by Michael Toy, Ken Arnold & Glenn Wichman.*
 
 The 1980 classic **Rogue 5.4** — rules, level generator, monsters, items, hunger, daemons and
 all — laid out as a living board game on a kitchen table: hand-painted miniatures, cut-stone
@@ -73,5 +75,7 @@ animation and the wall cut-away done in the vertex shader.
 * `src/ui/` — HUD, cards, prompts, input handling, travel path-finding, tombstone & scores.
 * Saves and high scores live in the browser's `localStorage`.
 
-Original game © 1980–1983, 1985, 1999 Michael Toy, Ken Arnold and Glenn Wichman — see
-`LICENSE-ROGUE.txt`. The port and presentation layer are provided in the same spirit.
+Original game © 1980–1983, 1985, 1999 Michael Toy, Ken Arnold and Glenn Wichman, used under
+the BSD license in `LICENSE-ROGUE.txt`. All third-party notices that ship with the game are in
+`LICENSES.txt`, which is also shown in-game under *Credits & Licenses* on the title screen.
+This project is not affiliated with or endorsed by the authors of Rogue.

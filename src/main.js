@@ -1,4 +1,4 @@
-// Rogue: The Tabletop — entry point. Wires the ported 1980s rules engine to the 3D table.
+// The Amulet of Yendor — entry point. Wires the ported 1980s rules engine to the 3D table.
 import * as THREE from 'three';
 import * as D from './rogue/data.js';
 import { S, io, onEvent, screen, standout, GameOver, emit, moat, chat, isupper } from './rogue/state.js';
@@ -421,15 +421,17 @@ function titleScreen(params) {
     t.className = 'title';
     const save = hasSave();
     t.innerHTML = `
-      <div class="big">ROGUE</div>
-      <div class="tag">THE DUNGEONS OF DOOM</div>
+      <div class="pre">THE AMULET OF</div>
+      <div class="big">YENDOR</div>
+      <div class="tag">based on Rogue by Michael Toy, Ken Arnold &amp; Glenn Wichman</div>
       <div class="menu-col">
         <button class="btn primary" data-a="new">New Adventure</button>
         ${save ? '<button class="btn" data-a="continue">Continue Saved Game</button>' : ''}
         <button class="btn" data-a="how">How to Play</button>
         <button class="btn" data-a="opts">Options</button>
+        <button class="btn" data-a="credits">Credits &amp; Licenses</button>
       </div>
-      <div class="credit">The classic 1980 game by Michael Toy, Ken Arnold &amp; Glenn Wichman — Rogue 5.4 rules, faithfully ported, now laid out on the kitchen table.<br>Press any movement key in the dungeon to begin. Mouse works everywhere.</div>`;
+      <div class="credit">The rules of Rogue 5.4 (1980–1985), faithfully ported and laid out on the kitchen table. Not affiliated with or endorsed by the authors of Rogue.<br>Press any movement key in the dungeon to begin. Mouse works everywhere.</div>`;
     document.body.appendChild(t);
     stage.cam.distT = 30; stage.cam.pitchT = 0.36;
     stage.setFocus(40, 12, true);
@@ -438,8 +440,9 @@ function titleScreen(params) {
       const a = e.target.dataset && e.target.dataset.a;
       if (!a) return;
       if (a === 'new' || a === 'continue') fin(a);
-      if (a === 'how') { await ui.showHelp(); }
-      if (a === 'opts') { await ui.showOptions(); }
+      // the title sits above the modal layer, so step aside while one of its dialogs is open
+      const dialog = { how: () => ui.showHelp(), opts: () => ui.showOptions(), credits: () => ui.showCredits() }[a];
+      if (dialog) { t.style.visibility = 'hidden'; await dialog(); t.style.visibility = ''; }
     });
     input.modal = (k) => { if (k === '\n') { fin('new'); } return true; };
     if (params && params.get('autostart')) setTimeout(() => fin('new'), 200);

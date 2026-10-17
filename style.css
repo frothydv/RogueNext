@@ -29,7 +29,8 @@ html, body { margin: 0; height: 100%; background: #0b0705; overflow: hidden; col
 #loading.done { opacity: 0; pointer-events: none; }
 .load-card { text-align: center; color: var(--brass-hi); font-family: var(--serif); }
 .load-card .logo { font-size: 84px; letter-spacing: 14px; color: var(--red); text-shadow: 0 0 30px rgba(255, 90, 40, .45), 0 3px 0 #3a0c08; font-weight: 900; }
-.load-card .sub { font-size: 22px; letter-spacing: 6px; margin-bottom: 30px; font-style: italic; }
+.load-card .sub { font-size: 22px; letter-spacing: 6px; font-style: italic; }
+.load-card .sub.based { font-size: 13px; letter-spacing: 1px; opacity: .7; margin: 6px 0 30px; }
 .load-card .bar { width: 340px; height: 8px; background: #000a; border: 1px solid var(--parch-edge); border-radius: 5px; overflow: hidden; margin: 0 auto 12px; }
 .load-card .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a3a10, #ffbe50); transition: width .25s; }
 #load-text { font-size: 15px; opacity: .8; font-family: var(--body); }
@@ -183,10 +184,13 @@ button { font-family: var(--serif); cursor: pointer; }
 /* title screen */
 .title { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 55%, rgba(10,5,2,.25), rgba(8,4,2,.82)); color: var(--brass-hi); font-family: var(--serif); text-align: center; animation: fade .6s; }
 .title .big { font-size: clamp(60px, 10vw, 150px); letter-spacing: .12em; color: #ff5a3a; font-weight: 900; text-shadow: 0 0 50px rgba(255,100,40,.5), 0 6px 0 #3a0c08, 0 12px 24px #000; line-height: 1; }
-.title .tag { font-size: clamp(16px, 2vw, 26px); letter-spacing: .35em; font-style: italic; margin: 8px 0 34px; text-shadow: 0 2px 8px #000; }
+.title .pre { font-size: clamp(16px, 2.4vw, 32px); letter-spacing: .45em; font-style: italic; margin-bottom: 6px; text-shadow: 0 2px 8px #000; }
+.title .tag { font-size: clamp(12px, 1.2vw, 16px); letter-spacing: .12em; font-style: italic; opacity: .8; margin: 12px 0 34px; text-shadow: 0 2px 8px #000; }
 .title .menu-col { display: flex; flex-direction: column; gap: 12px; width: 300px; }
 .title .btn { font-size: 18px; padding: 12px; }
 .title .credit { position: absolute; bottom: 14px; font-size: 12px; opacity: .65; letter-spacing: 1px; font-family: var(--body); max-width: 80vw; }
+.licenses .who { margin: 0 0 10px; }
+.licenses pre { font-family: var(--mono); font-size: 11px; line-height: 1.35; white-space: pre-wrap; max-height: 50vh; overflow: auto; background: rgba(0,0,0,.06); padding: 10px; border-radius: 6px; user-select: text; }
 .tomb { text-align: center; }
 .tomb canvas { max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.6); }
 .scores { margin-top: 12px; text-align: left; font-size: 14px; }

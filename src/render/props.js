@@ -578,7 +578,7 @@ export function buildTableProps(parent, mapTexture) {
   });
   // rulebook
   const book = new THREE.Group();
-  const cover = new THREE.MeshStandardMaterial({ map: bookTexture('ROGUE', 'The Dungeons of Doom'), roughness: 0.55 });
+  const cover = new THREE.MeshStandardMaterial({ map: bookTexture('YENDOR', 'The Amulet of'), roughness: 0.55 });
   const paper = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.9 });
   const bk = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.7, 9.8), [paper, paper, cover, new THREE.MeshStandardMaterial({ color: 0x2a1410 }), paper, paper]);
   bk.castShadow = bk.receiveShadow = true;

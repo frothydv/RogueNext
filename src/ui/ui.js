@@ -1,6 +1,7 @@
 // The table-top HUD: stat strip, message scroll, equipment and pack cards, action bar, minimap,
 // prompts, tooltips, context menus and modal dialogs.
 import * as D from '../rogue/data.js';
+import LICENSES from '../../LICENSES.txt';
 import { S, io, CTRL, unctrl } from '../rogue/state.js';
 import * as I from '../rogue/items.js';
 import { iconCanvas, appearanceFor } from '../render/icons.js';
@@ -58,7 +59,7 @@ export const ui = {
     const hud = (this.hud = root);
     hud.innerHTML = '';
     // logo + depth
-    const logo = el('div', 'logo-plate leather', '<div class="t">ROGUE</div><div class="lv">LEVEL <b id="u-level">1</b> · <span id="u-lname"></span></div>');
+    const logo = el('div', 'logo-plate leather', '<div class="t">YENDOR</div><div class="lv">LEVEL <b id="u-level">1</b> · <span id="u-lname"></span></div>');
     // top stat strip
     const top = el('div', 'topbar leather');
     top.innerHTML = `
@@ -626,6 +627,15 @@ export const ui = {
         body.appendChild(col);
       }
       this.modal({ title: 'What You Have Discovered', body, buttons: [['Close', null, true]], onClose: () => res() });
+    });
+  },
+
+  showCredits() {
+    return new Promise((res) => {
+      const body = el('div', 'licenses');
+      body.appendChild(el('p', 'who', '<b>The Amulet of Yendor</b> is based on <i>Rogue: Exploring the Dungeons of Doom</i> by Michael Toy, Ken Arnold &amp; Glenn Wichman, and is not affiliated with or endorsed by them. Rendering by three.js.'));
+      body.appendChild(el('pre', '', esc(LICENSES)));
+      this.modal({ title: 'Credits & Licenses', body, buttons: [['Close', null, true]], onClose: () => res() });
     });
   },
 
