@@ -134,12 +134,20 @@ export class KitBoard extends BoardView {
       const bb = g.boundingBox;
       const k = (target || (bb.max.y - bb.min.y)) / (bb.max.y - bb.min.y);
       const sx = 1 / (bb.max.x - bb.min.x);
-      g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
-      g.rotateY(Math.PI);
-      // a touch deeper so the slabs on the two faces of a one-cell wall meet in the middle (no hollow core)
-      const kz = k * 1.25;
-      g.scale(sx, k, kz);
-      g.translate(0, 0, -(bb.max.z - bb.min.z) * kz / 2);
+      // The panel's body is only about half as deep as its box (a few ledge vertices stick out of the back), so measure
+      // the body: the depth that 90% of the vertices sit in front of. (Read it now: bb is the geometry's own box, which
+      // every transform below recomputes.)
+      const pos = g.attributes.position;
+      const back = Array.from({ length: pos.count }, (_, i) => pos.getZ(i)).sort((a, b) => a - b);
+      const d0 = back[Math.floor(back.length * 0.9)] - bb.min.z;
+      g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -bb.min.z);
+      g.rotateY(Math.PI); // the room face (min z) is now z = 0, the body behind it at z < 0
+      // The room face sits on the cell edge, flush with the floor, and the body is half a cell deep (plus a hair) so the
+      // slabs on the two faces of a one-cell wall meet in the middle; anything behind that is flattened onto the back.
+      const D = 0.505;
+      g.scale(sx, k, D / d0);
+      for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.max(pos.getZ(i), -D));
+      pos.needsUpdate = true;
       const m = p.material.clone();
       m.roughness = 1;
       m.color.setScalar(1.6); // the wall texture is darker than the door arch's stone; lift it to match
@@ -230,8 +238,16 @@ export class KitBoard extends BoardView {
         const start = this.revealAt[k];
         const cx = (x / CH) | 0, cy = (y / CH) | 0;
         if (nP) cp.push({ variant: h % nP, cx, cy, pos: new THREE.Vector3(x + 0.5, FLOOR_Y, y + 0.5), quat: yq(((h >>> 4) & 3) * Math.PI / 2), start, cell: k });
+        // Each slab fills the half of the cell behind its face. Where a wall turns (walls on both sides of one corner of the
+        // cell) no slab covers that quarter, which leaves a notch at a room's inside corner and a pit in the wall top:
+        // give the cell the two faces that continue those walls.
+        const face = dirs.map(([dx, dy]) => !this.isWallCell(x + dx, y + dy));
+        if (this.tiled)
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              if (this.isWallCell(x + sx, y) && this.isWallCell(x, y + sy)) face[sy < 0 ? 0 : 1] = face[sx < 0 ? 2 : 3] = true;
         dirs.forEach(([dx, dy, ang], di) => {
-          if (this.isWallCell(x + dx, y + dy)) return;
+          if (!face[di]) return;
           wl.push({ variant: ((h >>> (3 + di * 3)) + di * 5) % nW, cx, cy, pos: new THREE.Vector3(x + 0.5 + dx * 0.5, FLOOR_Y, y + 0.5 + dy * 0.5), quat: yq(ang), start, cell: k });
         });
       }
