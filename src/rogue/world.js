@@ -506,7 +506,11 @@ export function find_dest(tp) {
   for (const obj of S.lvl_obj) {
     if (obj.o_type === D.SCROLL && obj.o_which === D.S_SCARE) continue;
     if (roomin(obj.o_pos) === tp.t_room && rnd(100) < prob) {
-      if (!S.mlist.some((m) => m.t_dest === obj.o_pos)) return obj.o_pos;
+      // the original reuses its monster variable for this search, so after finding the monster
+      // already after this object it goes on comparing rooms against *that* monster
+      const other = S.mlist.find((m) => m.t_dest === obj.o_pos);
+      if (!other) return obj.o_pos;
+      tp = other;
     }
   }
   return S.hero;

@@ -315,8 +315,8 @@ export const ui = {
     if (f & D.ISHALU) add('warn', '🌈 Hallucinating', 'Everything looks strange');
     if (f & D.ISHASTE) add('good', '⚡ Hasted', 'You move twice as fast');
     if (f & D.ISLEVIT) add('good', '🕊 Levitating', 'You float — no stairs, traps or pickups');
-    if (f & D.CANSEE) add('good', '👁 Sees invisible', 'Invisible things are revealed');
-    if (f & D.SEEMONST) add('good', '📡 Sensing monsters', 'Monsters on this level are shown');
+    // no badge for see invisible or monster detection: the original never tells you, and a badge
+    // would identify the potion or ring for free
     if (f & D.CANHUH) add('good', '🔥 Glowing hands', 'Your next hit confuses the monster');
     if (S.hungry_state === 1) add('warn', '🍞 Hungry', 'Eat something soon');
     if (S.hungry_state === 2) add('bad', '🍞 Weak', 'You are weak from hunger — eat now!');
@@ -331,7 +331,8 @@ export const ui = {
 
   // ------------------------------------------------------------ pack & equipment cards
   cardFor(o, opts = {}) {
-    const c = el('div', 'card' + (o.o_flags & D.ISCURSED && (o.o_flags & D.ISKNOW) ? ' cursed' : ''));
+    // (no "cursed" marking: the original only says so when you try to take a cursed thing off)
+    const c = el('div', 'card');
     const ic = el('div', 'ic');
     ic.appendChild(iconCanvas(appearanceFor(S, o), 38));
     const nm = el('div', 'nm');
@@ -638,7 +639,7 @@ export const ui = {
       row('Show lamp-lit floor in dark rooms', 'The original "seefloor" option', cb(() => S.see_floor, (v) => { S.see_floor = v; }));
       row('Follow corridors when running', 'The original "passgo" option', cb(() => S.passgo, (v) => { S.passgo = v; }));
       row('Describe equipped items in the pack', 'The original "inven" detail', cb(() => S.inv_describe, (v) => { S.inv_describe = v; this.renderPack(); }));
-      row('Ask me to name unknown items after use', 'Off by default; use the "c" command instead', cb(() => !!S.autoNamePrompt, (v) => { S.autoNamePrompt = v; }));
+      row('Ask me to name unknown items after use', 'As the original does; turn off to use the "c" command instead', cb(() => !!S.autoNamePrompt, (v) => { S.autoNamePrompt = v; }));
       const name = el('input'); name.type = 'text'; name.value = S.whoami; name.maxLength = 20; name.addEventListener('change', () => { S.whoami = name.value || 'Rodney'; });
       row('Your name', 'Appears on your tombstone', name);
       const fruit = el('input'); fruit.type = 'text'; fruit.value = S.fruit; fruit.maxLength = 20; fruit.addEventListener('change', () => { S.fruit = fruit.value || 'slime-mold'; });

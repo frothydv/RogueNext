@@ -8,7 +8,7 @@ import * as W from './rogue/world.js';
 import { Stage, qualityPreset } from './render/stage.js';
 import { BoardView, FLOOR_Y, TERR, shaderCut } from './render/board.js';
 import { KitBoard } from './render/kitboard.js';
-import { Entities } from './render/entities.js';
+import { Entities, shownLevel } from './render/entities.js';
 import { FX } from './render/fx.js';
 import { Director } from './render/director.js';
 import { buildTableProps } from './render/props.js';
@@ -28,10 +28,10 @@ let stage, board, entities, fx, director;
 const settings = (() => {
   let s = {};
   try { s = JSON.parse(localStorage.getItem('rogue-tabletop-settings') || '{}'); } catch (e) { /* ignore */ }
-  return { quality: s.quality || 'high', name: s.name || 'Rodney', autoSave: s.autoSave !== false, sound: s.sound !== false, fruit: s.fruit || 'slime-mold', terse: !!s.terse, passgo: s.passgo !== false };
+  return { quality: s.quality || 'high', name: s.name || 'Rodney', autoSave: s.autoSave !== false, sound: s.sound !== false, fruit: s.fruit || 'slime-mold', terse: !!s.terse, passgo: !!s.passgo, autoName: s.autoName !== false };
 })();
 const persistSettings = () => {
-  try { localStorage.setItem('rogue-tabletop-settings', JSON.stringify({ ...settings, name: S.whoami, fruit: S.fruit, terse: S.terse, passgo: S.passgo })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('rogue-tabletop-settings', JSON.stringify({ ...settings, name: S.whoami, fruit: S.fruit, terse: S.terse, passgo: S.passgo, autoName: !!S.autoNamePrompt })); } catch (e) { /* ignore */ }
 };
 
 function fatal(err) {
@@ -83,8 +83,10 @@ async function boot() {
     toggleSound: () => { settings.sound = !settings.sound; audio.setEnabled(settings.sound); persistSettings(); if (settings.sound) audio.unlock(); return settings.sound; },
     soundOn: () => settings.sound,
   };
-  S.whoami = settings.name; S.fruit = settings.fruit; S.terse = settings.terse; S.passgo = settings.passgo;
+  S.whoami = settings.name; S.fruit = settings.fruit; S.terse = settings.terse; S.passgo = settings.passgo; S.autoNamePrompt = settings.autoName;
   onEvent((t, d) => director.handle(t, d));
+  // what is under the pointer can change without the pointer moving (a hallucination redraws every turn)
+  onEvent((t) => { if (t === 'turn_end' && lastHover && !drag) hover(lastHover); });
   audio.setEnabled(settings.sound);
   const unlock = () => audio.unlock();
   window.addEventListener('pointerdown', unlock, { once: true });
@@ -215,34 +217,39 @@ function describeCell(c) {
   const hero = S.hero;
   if (c.x === hero.x && c.y === hero.y) return { title: `${S.whoami} (you)`, meta: 'The adventurer.' };
   const mon = moat(c.y, c.x);
-  if (mon && isupper(g)) {
-    const name = D.monsters[mon.t_type.charCodeAt(0) - 65].m_name;
+  if (isupper(g)) {
+    // name what the screen shows, as '/' would: under hallucination that is the delusion, not the monster
+    const name = D.monsters[g.charCodeAt(0) - 65].m_name;
+    const title = name.replace(/^./, (s) => s.toUpperCase()) + ` (${g})`;
+    const sensed = standout[k] === true;
+    if (!mon || sensed || (S.player.t_flags & D.ISHALU)) return { title, meta: sensed ? 'You sense its presence.' : D.monster_blurbs[g] || '', monster: mon };
     const asleep = !(mon.t_flags & D.ISRUN) && !(mon.t_flags & D.ISHELD);
     const hpFrac = mon.t_stats.s_hpt / Math.max(1, mon.t_stats.s_maxhp);
-    const tier = mon.t_stats.s_lvl - S.player.t_stats.s_lvl;
+    const tier = shownLevel(g) - S.player.t_stats.s_lvl;
     const danger = tier >= 5 ? 'Deadly' : tier >= 2 ? 'Dangerous' : tier >= -1 ? 'Even match' : 'Weak';
     const tags = [`<span class="tag ${tier >= 2 ? 'red' : ''}">${danger}</span>`];
     tags.push(`<span class="tag">${mon.t_flags & D.ISHELD ? 'HELD' : asleep ? 'ASLEEP' : 'AWAKE'}</span>`);
-    if (mon.t_flags & D.ISHASTE) tags.push('<span class="tag red">HASTED</span>');
-    if (mon.t_flags & D.ISSLOW) tags.push('<span class="tag">SLOWED</span>');
-    if (mon.t_flags & D.ISHUH) tags.push('<span class="tag">CONFUSED</span>');
-    if (mon.t_flags & D.ISINVIS) tags.push('<span class="tag">INVISIBLE</span>');
     const hp = hpFrac < 1 ? `<div class="hpm"><i style="width:${Math.round(hpFrac * 100)}%"></i></div><div class="meta">${hpFrac > 0.66 ? 'Healthy' : hpFrac > 0.33 ? 'Wounded' : 'Nearly dead'}</div>` : '';
-    return { title: name.replace(/^./, (s) => s.toUpperCase()) + ` (${mon.t_type})`, meta: `${D.monster_blurbs[mon.t_type] || ''}`, extra: tags.join('') + hp, monster: mon };
+    return { title, meta: D.monster_blurbs[g] || '', extra: tags.join('') + hp, monster: mon };
   }
-  if (isupper(g)) return { title: 'A sensed creature', meta: 'You feel its presence.' };
   switch (g) {
     case '*': return { title: 'Gold', meta: 'Walk over it to pick it up.' };
-    case '!': { const o = W.find_obj(c.y, c.x); return { title: o && o.o_type === g ? `A ${S.p_colors[o.o_which]} potion` : 'A potion', meta: 'Drink it to find out what it does… carefully.' }; }
+    // a thing on the floor is only its symbol until you pick it up (and a xeroc can look like any of them)
+    case '!': return { title: 'A potion', meta: 'Drink it to find out what it does… carefully.' };
     case '?': return { title: 'A scroll', meta: 'Read it to learn its magic.' };
     case ':': return { title: 'Food', meta: 'Eat before you starve.' };
-    case ')': { const o = W.find_obj(c.y, c.x); return { title: o && o.o_type === g ? D.weap_info[o.o_which].oi_name.replace(/^./, (s) => s.toUpperCase()) : 'A weapon', meta: 'A weapon.' }; }
-    case ']': { const o = W.find_obj(c.y, c.x); return { title: o && o.o_type === g ? D.arm_info[o.o_which].oi_name.replace(/^./, (s) => s.toUpperCase()) : 'Armor', meta: 'A suit of armor.' }; }
-    case '=': { const o = W.find_obj(c.y, c.x); return { title: o && o.o_type === g ? `A ${S.r_stones[o.o_which]} ring` : 'A ring', meta: 'A magic ring.' }; }
-    case '/': { const o = W.find_obj(c.y, c.x); return { title: o && o.o_type === g ? `A ${S.ws_made[o.o_which]} ${S.ws_type[o.o_which]}` : 'A wand or staff', meta: 'Zap it in a direction.' }; }
+    case ')': return { title: 'A weapon', meta: 'Pick it up to see what it is.' };
+    case ']': return { title: 'Armor', meta: 'Pick it up to see what it is.' };
+    case '=': return { title: 'A ring', meta: 'A magic ring.' };
+    case '/': return { title: 'A wand or staff', meta: 'Zap it in a direction.' };
     case ',': return { title: 'The Amulet of Yendor', meta: 'The prize! Carry it back up to the surface.' };
     case '%': return { title: 'Stairs down', meta: 'Stand here and press > to descend.' };
-    case '^': { const t = INDEX_flags(c.y, c.x) & D.F_TMASK; return { title: D.tr_name[t].replace(/^./, (s) => s.toUpperCase()), meta: 'A known trap. Avoid it.' }; }
+    case '^': {
+      // the '^' command names a trap truthfully, except while hallucinating
+      if (S.player.t_flags & D.ISHALU) return { title: 'A trap', meta: 'You cannot trust your eyes right now.' };
+      const t = INDEX_flags(c.y, c.x) & D.F_TMASK;
+      return { title: D.tr_name[t].replace(/^./, (s) => s.toUpperCase()), meta: 'A known trap. Avoid it.' };
+    }
     case '+': return { title: 'A doorway', meta: 'Rooms are joined by doors and corridors.' };
     case '#': return { title: 'Corridor', meta: 'A narrow stone passage.' };
     case '.': return { title: 'Flagstone floor', meta: '' };
@@ -285,10 +292,13 @@ function installPointer() {
     if (d.button === 2) { contextMenu(c, e); return; }
     if (d.button === 0) cellClick(c, e);
   });
-  cv.addEventListener('pointerleave', () => { ui.tooltip(0, 0, null); entities.setHover(null); entities.setPath(null); });
+  cv.addEventListener('pointerleave', () => {
+    lastHover = null; ui.tooltip(0, 0, null); entities.setHover(null); entities.setPath(null); });
 }
 
+let lastHover = null;
 function hover(e) {
+  lastHover = { clientX: e.clientX, clientY: e.clientY };
   if (ui.modals.length) { ui.tooltip(0, 0, null); return; }
   const c = cellAt(e.clientX, e.clientY);
   if (!c) { entities.setHover(null); entities.setPath(null); ui.tooltip(0, 0, null); return; }

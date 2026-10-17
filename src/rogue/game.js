@@ -89,7 +89,7 @@ export function newGame(opts = {}) {
   S.oldrp = W.roomin(S.hero);
   countch = ''; direction = ''; newcount = false;
 }
-Dm.registry.runners = W.runners;
+Dm.register('runners', W.runners);
 
 // ------------------------------------------------------------------ traps
 export function be_trapped(tc) {
@@ -520,7 +520,7 @@ export async function quit() {
   emit('confirm', { text: 'Really quit?', keys: 'y' });
   const c = await io.readchar();
   emit('confirm_end', {});
-  if (c === 'y' || c === 'Y') throw new GameOver('quit', { purse: S.purse });
+  if (c === 'y') throw new GameOver('quit', { purse: S.purse });
   msg('');
   S.count = 0;
   S.to_death = false;
@@ -558,6 +558,18 @@ async function identify() {
   msg(`'${unctrl(ch)}': ${str}`);
 }
 
+// set_order: the original lists discoveries in a shuffled order, so the order of the entries
+// gives nothing away about which "called" guess is which (and it draws from the game's RNG)
+function set_order(n) {
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n; i > 0; i--) {
+    const r = rnd(i);
+    const t = order[i - 1]; order[i - 1] = order[r]; order[r] = t;
+  }
+  return order;
+}
+
+// the 'D' list for '*' (every type, in the original's order)
 export function discoveries() {
   const sets = [
     ['Potions', D.POTION, D.pot_info, D.MAXPOTIONS],
@@ -568,7 +580,7 @@ export function discoveries() {
   const out = [];
   for (const [title, type, info, n] of sets) {
     const items = [];
-    for (let i = 0; i < n; i++)
+    for (const i of set_order(n))
       if (info[i].oi_know || info[i].oi_guess) {
         const o = new_item();
         o.o_type = type; o.o_which = i; o.o_count = 1; o.o_flags = 0;

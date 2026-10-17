@@ -2,14 +2,18 @@
 import * as THREE from 'three';
 import * as D from '../rogue/data.js';
 import { S, screen, INDEX, isupper, standout } from '../rogue/state.js';
-import { find_obj } from '../rogue/world.js';
 import { Mini } from './minis.js';
 import * as P from './props.js';
 import { FLOOR_Y, TERR, WALL_H } from './board.js';
-import { colorFor, appearanceFor } from './icons.js';
 
 const W = 80;
 const ITEM_GLYPHS = new Set(['*', '!', '?', ':', ')', ']', ',', '=', '/']);
+
+// the level a monster that looks like `letter` would have here (new_monster's lev_add included)
+export function shownLevel(letter) {
+  const mp = D.monsters[letter.charCodeAt(0) - 65];
+  return mp ? mp.m_stats.s_lvl + Math.max(0, S.level - D.AMULETLEVEL) : 1;
+}
 
 export function worldOf(x, y) { return new THREE.Vector3(x + 0.5, FLOOR_Y, y + 0.5); }
 
@@ -38,7 +42,7 @@ export class Entities {
     this.leaving = [];
     this.doors = new Map();
     this.traps = new Map();
-    this.stairs = null;
+    this.stairs = new Map();
     this.torches = [];
     this.hero = null;
     this.detectGroup = new THREE.Group();
@@ -55,7 +59,6 @@ export class Entities {
     this.group.add(this.pathDots);
     this.sparkles = [];
     this.lastSyncKey = '';
-    this.itemKeyFor = (k, g, o) => `${k}:${g}:${o ? o.id : 0}`;
     board.listeners.reveal.push(() => { this.dirtyStatic = true; });
     this.dirtyStatic = true;
     stage.updaters.push((dt, t) => this.update(dt, t));
@@ -126,7 +129,8 @@ export class Entities {
     this.doors.clear();
     for (const t of this.traps.values()) this.group.remove(t.mesh);
     this.traps.clear();
-    if (this.stairs) { this.group.remove(this.stairs); this.stairs = null; }
+    for (const mesh of this.stairs.values()) this.group.remove(mesh);
+    this.stairs.clear();
     for (const t of this.torches) this.group.remove(t.mesh);
     this.torches = [];
     this.leaving.length = 0;
@@ -150,10 +154,12 @@ export class Entities {
 
   mini(mon) { return this.monsters.get(mon.id); }
 
-  makeMonsterMini(mon) {
-    const m = new Mini(mon.t_type, 'mon');
-    const tier = mon.t_stats.s_lvl - S.player.t_stats.s_lvl;
-    m.setRingColor(tier >= 5 ? 0xff2020 : tier >= 2 ? 0xff8a20 : tier >= -1 ? 0xe8c030 : 0x4ac860);
+  makeMonsterMini(mon, shown = mon.t_type) {
+    const m = new Mini(shown, 'mon');
+    // danger ring: judged from what you see, as a player of the original would (never the hidden truth)
+    const tier = shownLevel(shown) - S.player.t_stats.s_lvl;
+    m.dangerColor = tier >= 5 ? 0xff2020 : tier >= 2 ? 0xff8a20 : tier >= -1 ? 0xe8c030 : 0x4ac860;
+    m.setRingColor(m.dangerColor);
     m.placeAt(mon.t_pos.x + 0.5, mon.t_pos.y + 0.5);
     m.mon = mon;
     m.big = m.big || 1;
@@ -165,6 +171,17 @@ export class Entities {
     const z = this.makeZzz();
     m.root.add(z);
     m.zzz = z;
+    return m;
+  }
+
+  swapMini(mon, old, shown) {
+    this.group.remove(old.root);
+    old.dispose();
+    const m = this.makeMonsterMini(mon, shown);
+    m.x = old.x; m.z = old.z; m.mv = old.mv; m.yaw = m.yawT = old.yawT;
+    m.root.position.copy(old.root.position);
+    m.appear = 1;
+    m.ghost = false;
     return m;
   }
 
@@ -202,7 +219,10 @@ export class Entities {
       let m = this.monsters.get(mon.id);
       if (vis) {
         seenIds.add(mon.id);
-        if (!m) m = this.makeMonsterMini(mon);
+        // the figure shows what the screen shows: a hallucination's random letter, a polymorph's new shape
+        const shown = screen[mon.t_pos.y * W + mon.t_pos.x];
+        if (!m) m = this.makeMonsterMini(mon, shown);
+        else if (m.letter !== shown && !m.death) m = this.swapMini(mon, m, shown);
         if (m.fading && !m.death) { m.fading = false; m.unvanish(); }
         m.mon = mon;
         const detectedOnly = standout[mon.t_pos.y * W + mon.t_pos.x] && !this.board && false;
@@ -216,7 +236,7 @@ export class Entities {
         m.root.visible = true;
         // ghost look for detected-but-unseen monsters
         const ghost = standout[mon.t_pos.y * W + mon.t_pos.x] === true;
-        if (ghost !== !!m.ghost) { m.ghost = ghost; m.setAlpha(ghost ? 0.45 : 1); m.setRingColor(ghost ? 0xc040ff : m.ringMat.color.getHex()); }
+        if (ghost !== !!m.ghost) { m.ghost = ghost; m.setAlpha(ghost ? 0.45 : 1); m.setRingColor(ghost ? 0xc040ff : m.dangerColor); }
         if (mon.t_flags & D.ISINVIS && (S.player.t_flags & D.CANSEE)) m.setAlpha(0.55);
       }
     }
@@ -234,15 +254,16 @@ export class Entities {
   }
 
   syncItems(now) {
+    // Draw exactly the symbols on the screen. On the floor an object is only its symbol in the
+    // original (what it is, how much gold, which colour, is learned by picking it up), so every
+    // figure here is the plain one for its symbol. That also keeps a xeroc's disguise and a
+    // hallucination (which redraws the symbols each turn) indistinguishable from the real thing.
     const want = new Map();
-    const hallu = !!(S.player.t_flags & D.ISHALU);
     for (let y = 1; y < 23; y++) for (let x = 0; x < W; x++) {
       const k = y * W + x;
       const g = screen[k];
       if (!ITEM_GLYPHS.has(g)) continue;
-      const obj = find_obj(y, x);
-      const real = obj && obj.o_type === g ? obj : null;
-      want.set(this.itemKeyFor(k, hallu ? 'h' : g, real), { x, y, g, obj: real });
+      want.set(`${k}:${g}`, { x, y, g });
     }
     for (const [key, it] of this.items) {
       if (!want.has(key)) {
@@ -252,23 +273,13 @@ export class Entities {
     }
     for (const [key, w] of want) {
       if (this.items.has(key)) continue;
-      const spec = { value: w.obj ? w.obj.o_arm : 30, which: w.obj ? w.obj.o_which : (Math.random() * 3) | 0 };
-      let kind = w.g;
-      let ap = w.obj ? appearanceFor(S, w.obj) : {};
-      if (!w.obj) {
-        // mimic or hallucination: invent something plausible
-        if (w.g === D.POTION) ap = { color: colorFor(D.rainbow[(Math.random() * 27) | 0]) };
-        if (w.g === D.RING) ap = { color: colorFor(D.stones[(Math.random() * 20) | 0].st_name) };
-        if (w.g === D.STICK) ap = { color: colorFor(D.metal[(Math.random() * 20) | 0]), staff: Math.random() < 0.5 };
-      }
-      Object.assign(spec, ap);
-      const mesh = P.buildItem(kind, spec);
+      const mesh = P.buildItem(w.g, {});
       cloneMats(mesh);
       mesh.position.set(w.x + 0.5, 0, w.y + 0.5);
       mesh.rotation.y = ((w.x * 7 + w.y * 13) % 10) * 0.4;
       mesh.scale.setScalar(0.001);
       this.group.add(mesh);
-      this.items.set(key, { mesh, x: w.x, y: w.y, born: now, glow: mesh.userData.glow, sparkle: mesh.userData.sparkle, amulet: mesh.userData.amulet, kind });
+      this.items.set(key, { mesh, x: w.x, y: w.y, born: now, glow: mesh.userData.glow, sparkle: mesh.userData.sparkle, amulet: mesh.userData.amulet, kind: w.g });
     }
   }
 
@@ -278,26 +289,36 @@ export class Entities {
 
   syncStatic() {
     const b = this.board;
-    // stairs
-    const sx = S.stairs.x, sy = S.stairs.y, sk = sy * W + sx;
-    const showStairs = b.seen[sk] && b.terr[sk] === TERR.STAIRS;
-    if (showStairs && !this.stairs) {
-      this.stairs = P.buildStairs();
-      this.stairs.position.set(sx, 0, sy);
-      this.group.add(this.stairs);
-    } else if (!showStairs && this.stairs) { this.group.remove(this.stairs); this.stairs = null; }
-    // traps
+    // stairs: wherever the screen shows '%' (a xeroc can pose as stairs, a hallucination can hide
+    // them), plus the remembered real staircase while you or a monster stand on it
+    const sk = S.stairs.y * W + S.stairs.x;
+    const wantStairs = new Set();
+    for (let k = W; k < W * 23; k++) if (screen[k] === D.STAIRS) wantStairs.add(k);
+    if (b.seen[sk] && b.terr[sk] === TERR.STAIRS && (screen[sk] === D.PLAYER || isupper(screen[sk]))) wantStairs.add(sk);
+    for (const k of wantStairs) {
+      if (this.stairs.has(k)) continue;
+      const mesh = P.buildStairs();
+      mesh.position.set(k % W, 0, (k / W) | 0);
+      this.group.add(mesh);
+      this.stairs.set(k, mesh);
+    }
+    for (const [k, mesh] of this.stairs) if (!wantStairs.has(k)) { this.group.remove(mesh); this.stairs.delete(k); }
+    // traps: the plate shows the trap's kind ('^' names it for free), but while hallucinating
+    // that answer is random, so the plate changes with every turn
+    const hallu = !!(S.player.t_flags & D.ISHALU);
     const live = new Set();
     for (let k = 0; k < b.seen.length; k++) {
       if (b.seen[k] && b.terr[k] === TERR.TRAP) {
+        const x = k % W, y = (k / W) | 0;
+        const type = hallu ? (Math.imul(k + 1, 2654435761) + Math.imul(S.turns + 1, 40503)) >>> 29 : INDEX(y, x).p_flags & D.F_TMASK;
         live.add(k);
+        const have = this.traps.get(k);
+        if (have && have.type !== type) { this.group.remove(have.mesh); this.traps.delete(k); }
         if (!this.traps.has(k)) {
-          const x = k % W, y = (k / W) | 0;
-          const type = INDEX(y, x).p_flags & D.F_TMASK;
           const mesh = P.buildTrap(type);
           mesh.position.set(x + 0.5, 0, y + 0.5);
           this.group.add(mesh);
-          this.traps.set(k, { mesh, born: this.stage.time });
+          this.traps.set(k, { mesh, type, born: have ? have.born : this.stage.time });
         }
       }
     }
@@ -419,7 +440,7 @@ export class Entities {
       } else l.it.mesh.position.y += dt * 0.5;
     }
     // stairs rune
-    if (this.stairs) this.stairs.userData.rune.rotation.z = t * 0.25;
+    for (const mesh of this.stairs.values()) mesh.userData.rune.rotation.z = t * 0.25;
     // torches: flicker; pool lights to the nearest ones
     const pool = this.stage.torchPool;
     const hx = hero ? hero.root.position.x : 0, hz = hero ? hero.root.position.z : 0;

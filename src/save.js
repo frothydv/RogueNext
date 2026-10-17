@@ -1,6 +1,6 @@
 // Save / load the whole game to browser storage (the original wrote an encrypted save file).
 import * as D from './rogue/data.js';
-import { S, new_item, resetWorld, coord, clearScreen, screen, standout } from './rogue/state.js';
+import { S, new_item, resetWorld, coord, clearScreen, screen, standout, spread } from './rogue/state.js';
 import * as Dm from './rogue/daemons.js';
 import * as I from './rogue/items.js';
 
@@ -85,7 +85,7 @@ export function serialize() {
       weapname: D.weap_info[D.FLAME].oi_name, vf: D.monsters[5].m_stats.s_dmg,
     },
     names: { p_colors: S.p_colors, r_stones: S.r_stones, s_names: S.s_names, ws_made: S.ws_made, ws_type: S.ws_type },
-    daemons: S.d_list.map((d) => ({ t: d.d_type, f: d.d_func ? d.d_func.name : null, a: d.d_arg, time: d.d_time })),
+    daemons: S.d_list.map((d) => ({ t: d.d_type, f: d.d_func ? d.d_func.daemonName || null : null, a: d.d_arg, time: d.d_time })),
     screen: screen.join(''), standout: standout.map((b) => (b ? 1 : 0)).join(''),
     counter: new_item.counter,
   };
@@ -155,6 +155,10 @@ export function restore(data) {
   Object.assign(S, { p_colors: data.names.p_colors, r_stones: data.names.r_stones, s_names: data.names.s_names, ws_made: data.names.ws_made, ws_type: data.names.ws_type });
   // daemons
   data.daemons.forEach((d, i) => { const s = S.d_list[i]; s.d_type = d.t; s.d_func = d.f ? Dm.registry[d.f] || null : null; s.d_arg = d.a; s.d_time = d.time; if (!s.d_func) s.d_type = 0; });
+  // saves written by earlier minified builds lost every daemon's name: put back the ones a game always runs
+  const has = (name) => S.d_list.some((d) => d.d_type !== 0 && d.d_func === Dm.registry[name]);
+  for (const name of ['runners', 'doctor', 'stomach']) if (!has(name)) Dm.start_daemon(Dm.registry[name], 0, D.AFTER);
+  if (!has('swander') && !has('rollwand')) Dm.fuse(Dm.swander, 0, spread(70), D.AFTER);
   const scr = data.screen;
   for (let i = 0; i < screen.length; i++) { screen[i] = scr[i]; standout[i] = data.standout[i] === '1'; }
 }

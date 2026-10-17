@@ -76,7 +76,8 @@ export function seen_stairs() {
 
 export function invis_on() {
   S.player.t_flags |= D.CANSEE;
-  emit('status_fx', { kind: 'seeinvis' });
+  for (const mp of S.mlist)
+    if (on(mp, D.ISINVIS) && W.see_monst(mp) && !on(S.player, D.ISHALU)) addch(mp.t_pos.y, mp.t_pos.x, mp.t_disguise);
 }
 
 export function add_haste(potion) {
@@ -164,16 +165,17 @@ export async function quaff() {
     case D.P_MFIND:
       S.player.t_flags |= D.SEEMONST;
       Dm.fuse(Dm.turn_see_fuse, 1, D.HUHDURATION, D.AFTER);
+      // (the original never identifies this potion, even when it shows you monsters)
       if (!W.turn_see(false)) msg(`you have a ${choose_str('normal', 'strange')} feeling for a moment, then it passes`);
-      else {
-        D.pot_info[D.P_MFIND].oi_know = true;
-        emit('status_fx', { kind: 'monster_detect' });
-      }
+      else emit('status_fx', { kind: 'monster_detect' });
       break;
     case D.P_TFIND: {
       const cells = [];
-      for (const tp of S.lvl_obj) if (I.is_magic(tp)) cells.push({ x: tp.o_pos.x, y: tp.o_pos.y });
-      for (const mp of S.mlist) for (const tp of mp.t_pack) if (I.is_magic(tp)) cells.push({ x: mp.t_pos.x, y: mp.t_pos.y });
+      // as in the original, monsters' packs are only looked through when something lies on the floor
+      if (S.lvl_obj.length) {
+        for (const tp of S.lvl_obj) if (I.is_magic(tp)) cells.push({ x: tp.o_pos.x, y: tp.o_pos.y });
+        for (const mp of S.mlist) for (const tp of mp.t_pack) if (I.is_magic(tp)) cells.push({ x: mp.t_pos.x, y: mp.t_pos.y });
+      }
       if (cells.length) {
         D.pot_info[D.P_TFIND].oi_know = true;
         await show_detect('magic', cells, 'You sense the presence of magic on this level.');

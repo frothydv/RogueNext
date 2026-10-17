@@ -170,17 +170,20 @@ export class Director {
         return 0;
       }
       case 'monster_summoned': {
-        if (fast) return 0;
+        if (fast || (S.player.t_flags & D.ISBLIND)) return 0;
         const p = cellPos(data.mon.t_pos, 0.4);
         fx.burst(p, { count: 24, color: [1.6, 0.8, 2.6], speed: 2, life: 0.8, size: 0.3 });
         fx.ring(V(p.x, 0.2, p.z), [1.6, 0.8, 2.6], 0.9, 0.5);
         return 0.15;
       }
       case 'monster_fx': {
+        // the same sparkle for every wand, and only on a creature you can see: the original shows
+        // nothing at all, so the effect must not tell one unknown wand from another
         const m = e.mini(data.mon);
-        const p = m ? V(m.x, 0.7, m.z) : cellPos(data.mon.t_pos, 0.7);
+        if (!m || m.fading || m.ghost) return 0;
+        const p = V(m.x, 0.7, m.z);
         if (!fast) {
-          const c = { polymorph: [3, 1, 3], cancel: [1, 2, 3], invis: [1, 1, 1], teleport: [2, 1.2, 3], haste: [3, 2.4, 0.6], slow: [0.8, 1.4, 3] }[data.kind] || [2, 2, 2];
+          const c = [2, 2, 2.4];
           fx.burst(p, { count: 24, color: c, speed: 2, life: 0.8, size: 0.3 });
           fx.ring(V(p.x, 0.2, p.z), c, 0.9, 0.5);
         }
@@ -488,7 +491,6 @@ export class Director {
       case 'monster_detect': fx.ring(V(p.x, 0.2, p.z), [3, 1, 3], 4.0, 0.9, 0.04); break;
       case 'sleep': fx.text(V(p.x, 1.5, p.z), 'Zzz…', { color: '#cfe4ff', size: 56, dur: 1.4, vy: 0.4 }); break;
       case 'wake': fx.text(V(p.x, 1.5, p.z), '!', { color: '#ffd24a', size: 70, dur: 0.9, vy: 0.5 }); break;
-      case 'seeinvis': fx.ring(V(p.x, 0.2, p.z), [1.2, 2.2, 3.0], 1.6, 0.6); break;
       default: break;
     }
     return 0.15;

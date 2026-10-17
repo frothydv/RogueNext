@@ -2,7 +2,7 @@
 // fog-of-war shading. Reads the remembered "screen" of the ported game and the real map.
 import * as THREE from 'three';
 import * as D from '../rogue/data.js';
-import { S, screen, INDEX } from '../rogue/state.js';
+import { S, screen, INDEX, isupper } from '../rogue/state.js';
 import * as T from './textures.js';
 
 const W = 80, H = 24;
@@ -188,9 +188,11 @@ export class BoardView {
       for (let x = 0; x < W; x++) {
         const k = y * W + x;
         const g = screen[k];
+        // a monster standing on the stairs hides them, as on the original screen
+        const hidden = isupper(g) && INDEX(y, x).p_ch === D.STAIRS;
         if (g !== ' ' && !this.seen[k]) {
           // glyph newly displayed: remember terrain
-          const t = this.terrainOf(y, x);
+          const t = hidden ? TERR.FLOOR : this.terrainOf(y, x);
           if (t !== TERR.ROCK) {
             this.seen[k] = 1;
             this.terr[k] = t;
@@ -201,7 +203,7 @@ export class BoardView {
         } else if (this.seen[k]) {
           // terrain may change (secret door found, trap discovered)
           const t = this.terrainOf(y, x);
-          if (t !== this.terr[k] && t !== TERR.ROCK) {
+          if (t !== this.terr[k] && t !== TERR.ROCK && !hidden) {
             const wasWall = this.terr[k] === TERR.WALL;
             this.terr[k] = t;
             changedSeen = true;

@@ -55,6 +55,7 @@ export const S = {
   d_list: [],
   between: 0, group: 2, turns: 0,
   detect: null,       // transient magic/monster/food detection overlays
+  autoNamePrompt: true, // call_it: ask for a name after using an unknown potion or scroll
   wizard: false,
   lastKiller: '',
   win: false,

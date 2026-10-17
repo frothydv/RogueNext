@@ -7,7 +7,9 @@ import * as W from './world.js';
 
 const EMPTY = 0, DAEMON = -1, MAXDAEMONS = 20;
 export const registry = {};
-const reg = (fn) => { registry[fn.name] = fn; return fn; };
+// Daemons are saved by name, so each one is registered under an explicit key (the
+// minified build renames functions, so fn.name cannot be relied on).
+export const register = (name, fn) => { registry[name] = fn; fn.daemonName = name; return fn; };
 
 export function initDaemons() {
   S.d_list = Array.from({ length: MAXDAEMONS }, () => ({ d_type: EMPTY, d_func: null, d_arg: 0, d_time: 0 }));
@@ -39,7 +41,7 @@ export function do_fuses(flag) {
 }
 
 // ---------------------------------------------------------------- the daemons
-export const doctor = reg(function doctor() {
+export const doctor = register('doctor', function doctor() {
   const p = S.player.t_stats;
   const lv = p.s_lvl, ohp = p.s_hpt;
   S.quiet++;
@@ -53,9 +55,9 @@ export const doctor = reg(function doctor() {
   }
 });
 
-export const swander = reg(function swander() { start_daemon(rollwand, 0, D.BEFORE); });
+export const swander = register('swander', function swander() { start_daemon(rollwand, 0, D.BEFORE); });
 
-export const rollwand = reg(function rollwand() {
+export const rollwand = register('rollwand', function rollwand() {
   if (++S.between >= 4) {
     if (roll(1, 6) === 4) {
       W.wanderer();
@@ -66,18 +68,20 @@ export const rollwand = reg(function rollwand() {
   }
 });
 
-export const unconfuse = reg(function unconfuse() {
+export const unconfuse = register('unconfuse', function unconfuse() {
   S.player.t_flags &= ~D.ISHUH;
   msg(`you feel less ${choose_str('trippy', 'confused')} now`);
   emit('status_fx', { kind: 'unconfuse' });
 });
 
-export const unsee = reg(function unsee() {
+export const unsee = register('unsee', function unsee() {
+  for (const th of S.mlist)
+    if (on(th, D.ISINVIS) && W.see_monst(th)) addch(th.t_pos.y, th.t_pos.x, th.t_oldch);
   S.player.t_flags &= ~D.CANSEE;
   emit('status_fx', { kind: 'unsee' });
 });
 
-export const sight = reg(function sight() {
+export const sight = register('sight', function sight() {
   if (on(S.player, D.ISBLIND)) {
     extinguish(sight);
     S.player.t_flags &= ~D.ISBLIND;
@@ -87,7 +91,7 @@ export const sight = reg(function sight() {
   }
 });
 
-export const nohaste = reg(function nohaste() {
+export const nohaste = register('nohaste', function nohaste() {
   S.player.t_flags &= ~D.ISHASTE;
   msg('you feel yourself slowing down');
   emit('status_fx', { kind: 'nohaste' });
@@ -95,7 +99,7 @@ export const nohaste = reg(function nohaste() {
 
 export function choose_str(ts, ns) { return on(S.player, D.ISHALU) ? ts : ns; }
 
-export const stomach = reg(function stomach() {
+export const stomach = register('stomach', function stomach() {
   const orig_hungry = S.hungry_state;
   if (S.food_left <= 0) {
     if (S.food_left-- < -D.STARVETIME) S.death('s');
@@ -126,7 +130,7 @@ export const stomach = reg(function stomach() {
   }
 });
 
-export const come_down = reg(function come_down() {
+export const come_down = register('come_down', function come_down() {
   if (!on(S.player, D.ISHALU)) return;
   kill_daemon(visuals_d);
   S.player.t_flags &= ~D.ISHALU;
@@ -143,13 +147,13 @@ export const come_down = reg(function come_down() {
   msg('Everything looks SO boring now.');
 });
 
-export const visuals_d = reg(function visuals() { W.visuals(); });
+export const visuals_d = register('visuals', function visuals() { W.visuals(); });
 
-export const land = reg(function land() {
+export const land = register('land', function land() {
   S.player.t_flags &= ~D.ISLEVIT;
   msg(choose_str("bummer!  You've hit the ground", 'you float gently to the ground'));
   emit('status_fx', { kind: 'land' });
 });
 
 // turn_see used as a fuse callback
-export const turn_see_fuse = reg(function turn_see(arg) { W.turn_see(!!arg); });
+export const turn_see_fuse = register('turn_see', function turn_see(arg) { W.turn_see(!!arg); });
